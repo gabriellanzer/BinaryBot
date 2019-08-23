@@ -1,4 +1,13 @@
+//const macd = require('./indicators/macd.js')
+// { fastEmaPeriod = 12, slowEmaPeriod = 26,
+//   signalEmaPeriod = 9, pipSize = 2 }
+
 module.exports = function(App) {
+  this.tickList = []
+  App.SubscribeTick("R_100", ((tick) => {
+    this.tickList.push(tick)
+  }).bind(this))
+
   let i = 0
   App.Use("tick", () => {
     i = (i + 1) % 2 //Actions every 2 ticks

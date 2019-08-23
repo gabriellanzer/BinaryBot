@@ -11,7 +11,87 @@ class BinaryApp {
     this.timeout = 10000
     this.timeoutCounter = this.timeout
     this.authorized = false
+    this.liveContracts = new Map()
+    this.subscribedTicks = new Set()
     setInterval(this.Ping.bind(this), 2000)
+
+    this.Use("authorize", (msg, next) => {
+      if (msg.error) {
+        console.logError(msg.error.message)
+      } else {
+        console.logNotify("Authenticated!")
+      }
+      next()
+    })
+
+    this.Use("buy", (msg, next) => {
+      if (msg.error) {
+        console.logError("Buy failed with message " + msg.error.message)
+      } else {
+        this.liveContracts.set(msg.buy.contract_id, msg.buy)
+      }
+      next()
+    })
+
+    this.Use("tick", (msg, next) => {
+      if (msg.error) {
+        console.logError("Error receiving tick update " + msg.error.message)
+      }
+      next()
+    })
+
+    this.Use("transaction", (msg, next) => {
+      if (msg.error) {
+        console.logError("Transaction error: " + msg.error.message)
+      } else {
+        const trs = msg.transaction
+        if (trs.action == "sell") {
+          const value =
+            trs.amount - this.liveContracts.get(trs.contract_id).buy_price
+          if (value > 0) {
+            console.logWin(
+              `Sold contract with profit: ${value} ${trs.currency}`
+            )
+          } else {
+            console.logLoss(`Sold contract with loss: ${value} ${trs.currency}`)
+          }
+          this.liveContracts.delete(trs.contract_id)
+        } else if (trs.action == "buy") {
+          console.logWarning(
+            `Bought contract for ${Math.abs(trs.amount)} ${trs.currency}`
+          )
+        }
+      }
+      next()
+    })
+
+    this.Use("", (msg, next) => {
+      if (msg.error) {
+        console.logError(msg.error.message)
+      }
+      next()
+    })
+  }
+
+  SubscribeTick(SYMBOL, callback) {
+    if (!tickList) tickList = []
+    if (!this.subscribedTicks.has(SYMBOL)) {
+      this.subscribedTicks.add(SYMBOL)
+      this.Send({
+        ticks: SYMBOL,
+        subscribe: 1
+      })
+    }
+    if(!callback) return
+    this.Use("tick", (msg, next) => {
+      if (!msg.error) {
+        if (msg.tick.symbol === SYMBOL) {
+          let value = msg.tick.bid * 0.5 + msg.tick.ask * 0.5
+          callback(value)
+        }
+      }
+      next()
+    })
   }
 
   Authorize(API_KEY, onAuthorized) {
@@ -23,23 +103,13 @@ class BinaryApp {
         console.logError(msg.error.message)
       } else {
         this.authorized = true
+        this.Send({
+          transaction: 1,
+          subscribe: 1
+        })
       }
     })
     if (onAuthorized) this.SingleUse("authorize", onAuthorized)
-  }
-
-  PriceProposal() {
-    this.Send({
-      proposal: 1,
-      amount: 1,
-      basis: "payout",
-      contract_type: "CALL",
-      currency: "USD",
-      duration: 60,
-      duration_unit: "s",
-      barrier: "+0.1",
-      symbol: "R_100"
-    })
   }
 
   BuyContract(price, parameters, buy = 1) {
@@ -75,8 +145,8 @@ class BinaryApp {
   }
 
   async WaitConnection() {
-    let connected = this.ws.readyState === WebSocket.OPEN
-    while (!connected) {
+    this.connected = this.ws.readyState === WebSocket.OPEN
+    while (!this.connected) {
       this.connected = await this.CheckConnection(200)
       if (this.connected) {
         this.timeoutCounter = this.timeout
