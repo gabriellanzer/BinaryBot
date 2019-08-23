@@ -11,7 +11,7 @@ class BinaryApp {
     this.timeout = 10000
     this.timeoutCounter = this.timeout
     this.authorized = false
-    setInterval(this.Ping.bind(this), 4000)
+    setInterval(this.Ping.bind(this), 2000)
   }
 
   Authorize(API_KEY, onAuthorized) {

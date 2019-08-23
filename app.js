@@ -1,6 +1,7 @@
+const BinaryApp = require("./BinaryApp.js")
+const path = require("path")
+const readline = require("readline-sync")
 require("./ConsoleLogs.js")()
-
-BinaryApp = require("./BinaryApp.js")
 
 let App = new BinaryApp("wss://ws.binaryws.com/websockets/v3?app_id=1089")
 
@@ -27,23 +28,6 @@ App.Use("tick", (msg, next) => {
     console.logError("Error receiving tick update " + msg.error.message)
   } else {
     //console.logInfo("Tick Value Received: " + msg.tick.quote)
-  }
-  next()
-})
-
-let i = 0
-App.Use("tick", (msg, next) => {
-  i = (i + 1) % 2 //Actions every 2 ticks
-  if (i == 0) {
-    App.BuyContract(10, {
-      symbol: "R_100", //Volatility 100
-      currency: "USD", //Same as account
-      contract_type: "CALL", //CALL - Going Up
-      duration_unit: "t", //Tick
-      duration: 1, //1 Tick
-      basis: "stake",
-      amount: 1
-    })
   }
   next()
 })
@@ -78,29 +62,62 @@ App.Use("", (msg, next) => {
   next()
 })
 
-App.Authorize("wgMRHgA5l2MCXbv", msg => {
-  App.Send({
-    ticks: "R_100"
-  })
-  App.Send({
-    transaction: 1,
-    subscribe: 1
-  })
-})
-
 let stdin = process.openStdin()
 
-stdin.addListener("data", function(input) {
+//Commands function
+function terminalCommands(input) {
   const data = input.toString().trim()
   if (data == "balance") {
     App.Send({
-      "balance": 1,
-      "subscribe": 0
+      balance: 1,
+      subscribe: 0
     })
-    App.SingleUse("balance", (msg) => {
+    App.SingleUse("balance", msg => {
       console.logInfo(
         `Current Balance = ${msg.balance.balance} ${msg.balance.currency}`
       )
     })
   }
-})
+  if (data == "auth") {
+    requestAuth()
+  }
+}
+
+//Request bot file
+let bot = undefined
+do {
+  let botPath = readline.question("Specify a bot file (bot.js):")
+  if (botPath.length == 0) {
+    botPath = "bot.js"
+  }
+  const botFilePath = path.resolve(path.join(__dirname, botPath))
+  try {
+    bot = require(botFilePath)
+  } catch (err) {
+    console.logError(err)
+  }
+} while (bot === undefined)
+
+//Request auth code
+function requestAuth() {
+  authToken = readline.question(
+    "Insert API Token (get from Settings > Security & Limits):"
+  )
+  App.Authorize(authToken, msg => {
+    if (msg.error) {
+      process.exit(403)
+    }
+
+    App.Send({
+      ticks: "R_100"
+    })
+    App.Send({
+      transaction: 1,
+      subscribe: 1
+    })
+    stdin.addListener("data", terminalCommands)
+  })
+}
+requestAuth()
+
+bot(App)
