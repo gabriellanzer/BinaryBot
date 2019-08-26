@@ -1,4 +1,4 @@
-import { mean } from "./math.js"
+require("./math.js")
 
 // type CandleField = 'open' | 'high' | 'low' | 'close';
 
@@ -8,7 +8,7 @@ import { mean } from "./math.js"
 // };
 
 const exponentialMovingAverage = function(data, config, initVal = 0) {
-  const { periods, pipSize = 2 } = config
+  const { periods, pipSize } = config
 
   const weightingMultiplier = 2 / (periods + 1)
 
@@ -18,6 +18,7 @@ const exponentialMovingAverage = function(data, config, initVal = 0) {
     return (vals[0] - initVal) * weightingMultiplier + initVal
   }
 
+  console.log(`${data.length} < ${periods}`)
   if (data.length < periods) {
     throw new Error("Periods longer than data length")
   }
@@ -30,7 +31,7 @@ const exponentialMovingAverage = function(data, config, initVal = 0) {
     .toFixed(pipSize)
 }
 
-export const exponentialMovingAverageArray = function(data, config) {
+const exponentialMovingAverageArray = function(data, config) {
   const { periods } = config
 
   let initVal = exponentialMovingAverage(data.slice(0, periods), config)
@@ -42,4 +43,4 @@ export const exponentialMovingAverageArray = function(data, config) {
     )
 }
 
-export default exponentialMovingAverage
+module.exports = { exponentialMovingAverage, exponentialMovingAverageArray }

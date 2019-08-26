@@ -1,4 +1,6 @@
-import { exponentialMovingAverageArray } from "./exponentialMovingAverage.js"
+const {
+  exponentialMovingAverageArray
+} = require("./exponentialMovingAverage.js")
 
 //type CandleField = 'open' | 'high' | 'low' | 'close';
 
@@ -19,17 +21,13 @@ const paddingLeft = function(data, length) {
 }
 
 const macdArray = function(data, config) {
-  const {
-    fastEmaPeriod = 12,
-    slowEmaPeriod = 26,
-    signalEmaPeriod = 9,
-    pipSize = 2
-  } = config
+  const { fastEmaPeriod, slowEmaPeriod, signalEmaPeriod, pipSize } = config
 
   const vals = data
 
   const length = vals.length
 
+  console.log(1)
   const fastEmaArray = paddingLeft(
     exponentialMovingAverageArray(
       vals,
@@ -46,11 +44,13 @@ const macdArray = function(data, config) {
     length
   )
 
+  console.log(slowEmaArray.length)
   const macdCalcArray = paddingLeft(
     slowEmaArray.map((x, i) => +(fastEmaArray[i] - x).toFixed(pipSize)),
     length
   )
 
+  console.log(macdCalcArray.length)
   const signalEmaArray = paddingLeft(
     exponentialMovingAverageArray(macdCalcArray.slice(slowEmaPeriod - 1), {
       periods: signalEmaPeriod,
@@ -68,4 +68,4 @@ const macdArray = function(data, config) {
     .slice(slowEmaPeriod + signalEmaPeriod - 2)
 }
 
-export default macdArray
+module.exports = macdArray
