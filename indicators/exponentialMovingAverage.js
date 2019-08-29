@@ -18,7 +18,6 @@ const exponentialMovingAverage = function(data, config, initVal = 0) {
     return (vals[0] - initVal) * weightingMultiplier + initVal
   }
 
-  console.log(`${data.length} < ${periods}`)
   if (data.length < periods) {
     throw new Error("Periods longer than data length")
   }

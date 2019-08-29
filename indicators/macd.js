@@ -27,7 +27,6 @@ const macdArray = function(data, config) {
 
   const length = vals.length
 
-  console.log(1)
   const fastEmaArray = paddingLeft(
     exponentialMovingAverageArray(
       vals,
@@ -44,13 +43,11 @@ const macdArray = function(data, config) {
     length
   )
 
-  console.log(slowEmaArray.length)
   const macdCalcArray = paddingLeft(
     slowEmaArray.map((x, i) => +(fastEmaArray[i] - x).toFixed(pipSize)),
     length
   )
 
-  console.log(macdCalcArray.length)
   const signalEmaArray = paddingLeft(
     exponentialMovingAverageArray(macdCalcArray.slice(slowEmaPeriod - 1), {
       periods: signalEmaPeriod,
