@@ -1,4 +1,4 @@
-require("./ConsoleLogs.js")()
+require("./ConsoleLogs.js")
 
 WebSocket = require("ws")
 
@@ -13,6 +13,11 @@ class BinaryApp {
     this.authorized = false
     this.liveContracts = new Map()
     this.subscribedTicks = new Set()
+    this.winCount = 0
+    this.lossCount = 0
+    this.winLossDiff = 0
+    this.maxWin = 0
+    this.maxLoss = 0
     setInterval(this.Ping.bind(this), 2000)
 
     this.Use("authorize", (msg, next) => {
@@ -46,19 +51,44 @@ class BinaryApp {
       } else {
         const trs = msg.transaction
         if (trs.action == "sell") {
-          const value =
-            trs.amount - this.liveContracts.get(trs.contract_id).buy_price
+          const contract = this.liveContracts.get(trs.contract_id)
+          if (contract == undefined) return //Contract from another bot
+          const value = trs.amount - contract.buy_price
+          const type = contract.shortcode.split("_")[0]
           if (value > 0) {
+            this.winCount++
+            if (this.winLossDiff < 0) this.winLossDiff = 0
+            this.winLossDiff++
+            this.maxWin = Math.max(this.maxWin, this.winLossDiff)
             console.logWin(
-              `Sold contract with profit: ${value} ${trs.currency}`
+              `Sold ${type} contract with profit: ${value} ${
+                trs.currency
+              } - Win > Count ${this.winCount} | Max ${
+                this.maxWin
+              } - WL-RATION > ${this.winCount / this.lossCount}`
             )
           } else {
-            console.logLoss(`Sold contract with loss: ${value} ${trs.currency}`)
+            this.lossCount++
+            if (this.winLossDiff > 0) this.winLossDiff = 0
+            this.winLossDiff--
+            this.maxLoss = Math.min(this.maxLoss, this.winLossDiff)
+            console.logLoss(
+              `Sold ${type} contract with loss: ${value} ${
+                trs.currency
+              } - Loss > Count ${this.lossCount} | Max ${
+                this.maxLoss
+              } - WL-RATION > ${this.winCount / this.lossCount}`
+            )
           }
           this.liveContracts.delete(trs.contract_id)
         } else if (trs.action == "buy") {
+          const contract = this.liveContracts.get(trs.contract_id)
+          if (contract == undefined) return //Contract from another bot
+          const type = contract.shortcode.split("_")[0]
           console.logWarning(
-            `Bought contract for ${Math.abs(trs.amount)} ${trs.currency}`
+            `Bought ${type} contract for ${Math.abs(trs.amount)} ${
+              trs.currency
+            }`
           )
         }
       }
@@ -82,7 +112,7 @@ class BinaryApp {
         subscribe: 1
       })
     }
-    if(!callback) return
+    if (!callback) return
     this.Use("tick", (msg, next) => {
       if (!msg.error) {
         if (msg.tick.symbol === SYMBOL) {
@@ -93,6 +123,8 @@ class BinaryApp {
       next()
     })
   }
+
+  SubscribeResult(SYMBOL, callback) {}
 
   Authorize(API_KEY, onAuthorized) {
     this.Send({

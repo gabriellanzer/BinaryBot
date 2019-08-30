@@ -1,7 +1,7 @@
 const BinaryApp = require("./BinaryApp.js")
 const path = require("path")
 const readline = require("readline-sync")
-require("./ConsoleLogs.js")()
+require("./ConsoleLogs.js")
 
 let App = new BinaryApp("wss://ws.binaryws.com/websockets/v3?app_id=1089")
 

@@ -1,11 +1,4 @@
-require("./math.js")
-
-// type CandleField = 'open' | 'high' | 'low' | 'close';
-
-// type ExponentialMovingAverageConfig = {
-//     periods: number,
-//     pipSize?: number,
-// };
+require("../libs/math")
 
 const exponentialMovingAverage = function(data, config, initVal = 0) {
   const { periods, pipSize } = config

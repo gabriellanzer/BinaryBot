@@ -2,17 +2,6 @@ const {
   exponentialMovingAverageArray
 } = require("./exponentialMovingAverage.js")
 
-//type CandleField = 'open' | 'high' | 'low' | 'close';
-
-// type MacdConfig = {
-//     fastEmaPeriod: number,
-//     slowEmaPeriod: number,
-//     signalEmaPeriod: number,
-//     pipSize: number,
-// };
-
-// type MacdEntry = number[];
-
 const paddingLeft = function(data, length) {
   const arr = []
   arr.length = length - data.length
