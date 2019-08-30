@@ -98,6 +98,7 @@ class BinaryApp {
           }
           this.liveContracts.delete(trs.contract_id)
           this.winLossRation = this.winCount / (this.winCount + this.lossCount)
+          this.winLossRation = roundWithPrecision(winLossRation, 6)
           console.logInfo(
             `Total Profit: ${this.totalProfit} ${trs.currency} ` +
               `|Win-Loss Ration: ${this.winLossRation * 100.0}% ` +
