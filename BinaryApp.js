@@ -99,7 +99,7 @@ class BinaryApp {
           this.liveContracts.delete(trs.contract_id)
           this.winLossRation = this.winCount / (this.winCount + this.lossCount)
           console.logInfo(
-            `Profit: ${this.totalProfit} ${trs.currency}` +
+            `Total Profit: ${this.totalProfit} ${trs.currency} ` +
               `|Win-Loss Ration: ${this.winLossRation * 100.0}% ` +
               `| Max Win: ${this.maxWin} ` +
               `| Max Loss: ${Math.abs(this.maxLoss)}`
