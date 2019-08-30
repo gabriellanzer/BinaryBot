@@ -29,3 +29,8 @@ linearRegression = (data, length) => {
   const tan = numerator / denominator
   return Math.atan(tan) * (180.0 / Math.PI)
 }
+
+roundWithPrecision = function(num, precision) {
+  var multiplier = Math.pow(10, precision)
+  return Math.round(num * multiplier) / multiplier
+}

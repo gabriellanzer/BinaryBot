@@ -8,16 +8,19 @@ class BinaryApp {
     this.uses = {}
     this.singleUses = {}
     this.ws.onmessage = this.ChainCall.bind(this)
-    this.timeout = 10000
+    this.timeout = 100000
     this.timeoutCounter = this.timeout
     this.authorized = false
     this.liveContracts = new Map()
+    this.resultCallbacks = new Map()
     this.subscribedTicks = new Set()
+    this.totalProfit = 0
     this.winCount = 0
     this.lossCount = 0
     this.winLossDiff = 0
     this.maxWin = 0
     this.maxLoss = 0
+    this.winLossRation = 0
     setInterval(this.Ping.bind(this), 2000)
 
     this.Use("authorize", (msg, next) => {
@@ -53,19 +56,19 @@ class BinaryApp {
         if (trs.action == "sell") {
           const contract = this.liveContracts.get(trs.contract_id)
           if (contract == undefined) return //Contract from another bot
-          const value = trs.amount - contract.buy_price
+          let value = trs.amount - contract.buy_price
           const type = contract.shortcode.split("_")[0]
+          const symbol = trs.symbol
+          this.totalProfit += value
+          this.totalProfit = roundWithPrecision(this.totalProfit, 3)
+          value = roundWithPrecision(value, 3)
           if (value > 0) {
             this.winCount++
             if (this.winLossDiff < 0) this.winLossDiff = 0
             this.winLossDiff++
             this.maxWin = Math.max(this.maxWin, this.winLossDiff)
             console.logWin(
-              `Sold ${type} contract with profit: ${value} ${
-                trs.currency
-              } - Win > Count ${this.winCount} | Max ${
-                this.maxWin
-              } - WL-RATION > ${this.winCount / this.lossCount}`
+              `Sold ${type} contract (${symbol}) with profit: ${value} ${trs.currency} - Win Count ${this.winCount}`
             )
           } else {
             this.lossCount++
@@ -73,14 +76,34 @@ class BinaryApp {
             this.winLossDiff--
             this.maxLoss = Math.min(this.maxLoss, this.winLossDiff)
             console.logLoss(
-              `Sold ${type} contract with loss: ${value} ${
-                trs.currency
-              } - Loss > Count ${this.lossCount} | Max ${
-                this.maxLoss
-              } - WL-RATION > ${this.winCount / this.lossCount}`
+              `Sold ${type} contract (${symbol}) with loss: ${value} ${trs.currency} - Loss Count ${this.lossCount}`
             )
           }
+          const callbacks = this.resultCallbacks.get(symbol)
+          if (callbacks !== undefined) {
+            const params = {
+              ...trs,
+              buy_price: contract.buy_price,
+              payout: contract.payout,
+              type: type,
+              start_time: contract.start_time,
+              shortcode: contract.shortcode,
+              profit: value,
+              totalProfit: this.totalProfit,
+              result: value > 0 ? "WIN" : "LOSS"
+            }
+            for (let i = 0; i < callbacks.length; i++) {
+              callbacks[i](params)
+            }
+          }
           this.liveContracts.delete(trs.contract_id)
+          this.winLossRation = this.winCount / (this.winCount + this.lossCount)
+          console.logInfo(
+            `Profit: ${this.totalProfit} ${trs.currency}` +
+              `|Win-Loss Ration: ${this.winLossRation * 100.0}% ` +
+              `| Max Win: ${this.maxWin} ` +
+              `| Max Loss: ${Math.abs(this.maxLoss)}`
+          )
         } else if (trs.action == "buy") {
           const contract = this.liveContracts.get(trs.contract_id)
           if (contract == undefined) return //Contract from another bot
@@ -117,14 +140,21 @@ class BinaryApp {
       if (!msg.error) {
         if (msg.tick.symbol === SYMBOL) {
           let value = msg.tick.bid * 0.5 + msg.tick.ask * 0.5
-          callback(value)
+          setTimeout(callback, 1000, value)
         }
       }
       next()
     })
   }
 
-  SubscribeResult(SYMBOL, callback) {}
+  SubscribeResult(SYMBOL, callback) {
+    let callbacks = this.resultCallbacks.get(SYMBOL)
+    if (callbacks === undefined) {
+      callbacks = new Array()
+      this.resultCallbacks.set(SYMBOL, callbacks)
+    }
+    callbacks.push(callback)
+  }
 
   Authorize(API_KEY, onAuthorized) {
     this.Send({
