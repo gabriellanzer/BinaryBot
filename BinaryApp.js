@@ -182,6 +182,10 @@ class BinaryApp {
           transaction: 1,
           subscribe: 1
         })
+        this.Send({
+          balance: 1,
+          subscribe: 1
+        })
       }
     })
     if (onAuthorized) this.SingleUse("authorize", onAuthorized)
