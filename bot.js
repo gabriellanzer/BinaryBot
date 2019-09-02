@@ -21,15 +21,16 @@ module.exports = function(App) {
   this.tickList = []
   this.marchingaleLv = 0
   this.iniStake = 0.35
+  this.lastFastReg = 0
   App.SubscribeTick("R_100", tick => {
     this.tickList.push(tick)
 
     //Wait for initialization buffer period (for MACD)
-    if (this.tickList.length < 17) {
-      console.log(`Bot starting in ${17 - this.tickList.length} ticks...`)
+    if (this.tickList.length < 15) {
+      console.log(`Bot starting in ${15 - this.tickList.length} ticks...`)
       return
     }
-    if (this.tickList.length > 34) this.tickList.splice(0, 1)
+    if (this.tickList.length > 30) this.tickList.splice(0, 1)
 
     //Calculating MACD
     const macdArray = macd(this.tickList, {
@@ -58,13 +59,17 @@ module.exports = function(App) {
     console.logInfo(`HIST - FAST - REG = ${fastReg}`)
     console.logInfo(`HIST - SLOW - REG = ${slowReg}`)
 
+    const fastRegDiff = fastReg - this.lastFastReg
+    this.lastFastReg = fastReg
+
+    //Auxiliar Indicators
     if (i == 0) {
       if (Math.abs(trubReg) > 0.3 && Math.abs(slowReg) > 0.9) {
         //Calculate Stake
         let currentStake = iniStake * Math.pow(2.07, marchingaleLv)
         currentStake = currentStake.toPrecision(2)
         i = 1
-        if (fastReg > 0) {
+        if (fastRegDiff > 0 && fastReg > 0) {
           App.BuyContract(currentStake, {
             symbol: "R_100", //Volatility 100
             currency: "USD", //Same as account
@@ -74,7 +79,7 @@ module.exports = function(App) {
             basis: "stake",
             amount: currentStake
           })
-        } else {
+        } else if (fastRegDiff < 0 && fastReg < 0) {
           App.BuyContract(currentStake, {
             symbol: "R_100", //Volatility 100
             currency: "USD", //Same as account

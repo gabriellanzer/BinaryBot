@@ -21,6 +21,8 @@ class BinaryApp {
     this.maxWin = 0
     this.maxLoss = 0
     this.winLossRation = 0
+    this.balance = 0
+    this.currency = "NONE"
     setInterval(this.Ping.bind(this), 2000)
 
     this.Use("authorize", (msg, next) => {
@@ -98,10 +100,11 @@ class BinaryApp {
           }
           this.liveContracts.delete(trs.contract_id)
           this.winLossRation = this.winCount / (this.winCount + this.lossCount)
-          this.winLossRation = roundWithPrecision(winLossRation, 6)
           console.logInfo(
             `Total Profit: ${this.totalProfit} ${trs.currency} ` +
-              `|Win-Loss Ration: ${this.winLossRation * 100.0}% ` +
+              `| Win-Loss Ration: ${(this.winLossRation * 100).toPrecision(
+                3
+              )}% ` +
               `| Max Win: ${this.maxWin} ` +
               `| Max Loss: ${Math.abs(this.maxLoss)}`
           )
@@ -125,6 +128,15 @@ class BinaryApp {
       }
       next()
     })
+
+    this.Use("balance", (msg, next) => {
+      if (msg.error) {
+        console.logError(msg.error.message)
+      }
+      this.balance = msg.balance.balance
+      this.currency = msg.balance.currency
+      next()
+    })
   }
 
   SubscribeTick(SYMBOL, callback) {
@@ -141,7 +153,7 @@ class BinaryApp {
       if (!msg.error) {
         if (msg.tick.symbol === SYMBOL) {
           let value = msg.tick.bid * 0.5 + msg.tick.ask * 0.5
-          setTimeout(callback, 1000, value)
+          setTimeout(callback, 2000, value)
         }
       }
       next()
