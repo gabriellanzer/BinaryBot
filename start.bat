@@ -1,6 +1,6 @@
 @echo off
 :Ini
 cd node
-node.exe ../app.js
+node.exe ../bootstrap.js
 pause
 GOTO Ini
