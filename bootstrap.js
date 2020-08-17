@@ -32,3 +32,5 @@ do {
     console.logError(err)
   }
 } while (bot === undefined)
+
+return 0
