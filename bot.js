@@ -34,7 +34,7 @@ if (simulation) {
 	const cacheExists = FS.existsSync(cache_path);
 	let forceRegen = false;
 	if (cacheExists) {
-		forceRegen = !ReadLine.keyInYNStrict("Cache found! Use existing cache it (y), or generate new(n)?")
+		forceRegen = !ReadLine.keyInYNStrict("Cache found! Use existing cache(y), or generate new(n)?")
 	} else {
 		console.log("Could not find existing cache file, generating new file!");
 	}
@@ -45,14 +45,35 @@ if (simulation) {
 	}
 }
 
+function toArrayBuffer(buf) {
+	var ab = new ArrayBuffer(buf.length);
+	var view = new Uint8Array(ab);
+	for (var i = 0; i < buf.length; ++i) {
+		view[i] = buf[i];
+	}
+	return ab;
+}
+
+function toBuffer(ab) {
+	var buf = Buffer.alloc(ab.byteLength);
+	var view = new Uint8Array(ab);
+	for (var i = 0; i < buf.length; ++i) {
+		buf[i] = view[i];
+	}
+	return buf;
+}
+
 function ReadCacheFile() {
 	let fileBuff = FS.readFileSync(cache_path);
+	// Read first line
 	let lstPos = 0;
 	let lnPos = fileBuff.indexOf("\n", byteOffset = lstPos);
 	const iniDate = new Date(fileBuff.slice(lstPos, lnPos).toString());
+	// Read second line
 	lstPos = lnPos + 1;
 	lnPos = fileBuff.indexOf("\n", byteOffset = lstPos);
 	const lastDate = new Date(fileBuff.slice(lstPos, lnPos).toString());
+	// Read third line
 	lstPos = lnPos + 1;
 	lnPos = fileBuff.indexOf("\n", byteOffset = lstPos);
 	const tickCount = parseInt(fileBuff.slice(lstPos, lnPos));
@@ -60,12 +81,29 @@ function ReadCacheFile() {
 		"Using Cache from '" + iniDate.toUTCString() + "' to '" +
 		lastDate.toUTCString() + "' with " + tickCount + " Ticks!"
 	);
+	// Read Binary Prices
 	lstPos = lnPos + 1;
-	price_list = new Float32Array(fileBuff, lstPos, tickCount);
-	lstPos += Float32Array.BYTES_PER_ELEMENT * tickCount;
-	time_list = new Int32Array(fileBuff, lstPos, tickCount);
+	const pricesBuffer = Buffer.from(
+		fileBuff.slice(lstPos, lstPos + tickCount * 4),
+		"binary"
+	);
+	let offset = 0;
+	for (let i = 0; i < tickCount; i++) {
+		price_list.push(pricesBuffer.readFloatBE(offset));
+		offset += 4;
+	}
+	// Read Binary Times
+	lstPos += tickCount * 4
+	const timesBuffer = Buffer.from(
+		fileBuff.slice(lstPos, lstPos + tickCount * 4),
+		"binary"
+	);
+	offset = 0;
+	for (let i = 0; i < tickCount; i++) {
+		time_list.push(timesBuffer.readInt32BE(offset));
+		offset += 4;
+	}
 	console.log(price_list);
-	console.log(time_list);
 }
 
 function GenerateNewCacheFile() {
@@ -97,8 +135,8 @@ function GenerateNewCacheFile() {
 		// Append to tick list
 		const history = msg.history;
 		for (let i = 0; i < history.prices.length; i++) {
-			price_list.push(parseFloat(history.prices[i]));
-			time_list.push(parseInt(history.times[i]));
+			price_list.push(history.prices[i]);
+			time_list.push(history.times[i]);
 		}
 
 		// New Request?
@@ -112,15 +150,29 @@ function GenerateNewCacheFile() {
 			});
 		} else // Download completed!
 		{
-			console.log(`Cache download completed... ${price_list.length} ticks gathered!`);
+			console.log(`Cache download completed... ${time_list.length} ticks gathered!`);
 			const wrStream = FS.createWriteStream(cache_path);
 			const iniTime = new Date(time_list[0] * 1000);
 			const lastTime = new Date(time_list[time_list.length - 1] * 1000);
+			// Write Ini Date, Last Date and Tick Count on separated lines
 			wrStream.write(`${iniTime}\n${lastTime}\n${time_list.length}\n`);
-			wrStream.write(Buffer.from(Float32Array.from(price_list)));
-			wrStream.write(Buffer.from(Int32Array.from(time_list)));
+			// Write Prices
+			const pricesBuffer = Buffer.alloc(price_list.length * 4);
+			let offset = 0;
+			for (let i = 0; i < price_list.length; i++) {
+				pricesBuffer.writeFloatBE(price_list[i], offset);
+				offset += 4;
+			}
+			wrStream.write(pricesBuffer, "binary");
+			// Write Times
+			const timesBuffer = Buffer.alloc(time_list.length * 4);
+			offset = 0;
+			for (let i = 0; i < time_list.length; i++) {
+				timesBuffer.writeInt32BE(time_list[i], offset);
+				offset += 4;
+			}
+			wrStream.write(timesBuffer, "binary");
 			wrStream.close();
-			
 		}
 	});
 
