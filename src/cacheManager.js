@@ -10,10 +10,12 @@ let end_time = 0;
 let price_list = [];
 let time_list = [];
 let cache_dir = "";
+let mktSymbol = "";
 
 // Should Request New Cache
-async function GetCache(cache_path) {
+async function GetCache(cache_path, mkt_symbol) {
     cache_dir = cache_path;
+    mktSymbol = mkt_symbol;
     console.log("\nChecking for existing cache files...");
     let cacheExists = FS.existsSync(cache_dir);
     if (cacheExists) {
@@ -127,7 +129,7 @@ async function GenerateNewCacheFile() {
                 });
             } else // Download completed!
             {
-                console.log(`Cache download completed... ${time_list.length} ticks gathered!`);
+                console.log(`Cache download completed... ${time_list.length} ticks gathered!\n`);
                 let wrStream;
                 try {
                     wrStream = FS.createWriteStream(cache_dir);

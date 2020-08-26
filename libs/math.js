@@ -45,7 +45,7 @@ ema = function(data, offset = 0, length = 0) {
   return +res;
 };
 
-macd = function(data, { slowPeriod = 26, fastPeriod = 12, signalPeriod = 9 }) {
+macd = function(data, slowPeriod = 26, fastPeriod = 12, signalPeriod = 9) {
   var totalPeriod = slowPeriod + signalPeriod;
   if (data.length < totalPeriod) {
     console.error(
