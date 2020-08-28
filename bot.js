@@ -21,18 +21,28 @@ const {
 } = require("./src/math");
 
 // Constants
-const cachePath = "./ticks.cache";
+const cachePath = `${__dirname}\\ticks.cache`;
 
 // Cache State
 let prices = [];
 let times = [];
 
-// State
+// Global State
 let simulation = false;
-let action = 0;
+// Meta Simulation State
+let stdStep = 0.05;
+let stdMin = 0.5;
+let stdMax = 3.0;
+let stdFence = stdMin;
+let signStep = 0.1;
+let signMin = 0.5;
+let signMax = 4.0;
+let signFence = signMin;
+let bestRatio = 0;
+// Simulation State
 let result = 0;
 let tickIt = 0;
-let contracts = {};
+let contracts = [];
 let winStreak = 0;
 let winStreaks = [];
 let lossStreak = 0;
@@ -56,11 +66,16 @@ function ProcessTick(price) {
 		[hist, val, sign]
 	] = MACD(tickList);
 
-	if (sign < 4.1 && sign > -4.1)
-		return 0;
+	const newSlice = tickList.slice(30, 36);
+	if (StdDev(newSlice) < stdFence) {
+		return;
+	}
 
-	BuyContract(sign, 1);
-	return sign;
+	if (Math.abs(sign) < signFence) {
+		return;
+	}
+
+	BuyContract(sign, 3);
 }
 
 async function RunBot() {
@@ -71,25 +86,56 @@ async function RunBot() {
 		console.log("=======================");
 		console.log("STARTING BOT SIMULATION");
 		console.log("=======================");
-		SimulateBot();
+
+		stdFence = stdMin;
+		signFence = signMin;
+		while (stdFence < stdMax) {
+			while (signFence < signMax) {
+				SimulateBot();
+				const ration = betsWon / betsCount;
+				if (ration > bestRatio) {
+					bestRatio = ration;
+					console.logInfo(`StdFence=${stdFence}; SignFence=${signFence};`);
+					LogResults();
+				}
+				signFence += signStep;
+			}
+			let prog = (stdFence - stdMin + stdStep) / (stdMax - stdMin + stdStep);
+			console.log("Meta Simulation Progress: " + (prog * 100).toFixed(2) + "%");
+			signFence = signMin;
+			stdFence += stdStep;
+		}
+		console.logWin("Meta Simulation finished!\n");
 	}
 }
 RunBot();
 
 function SimulateBot() {
+	ResetState();
 	for (tickIt = 0; tickIt < prices.length; tickIt++) {
 		let newResult = GetTradeResult();
-		console.log(newResult);
 		if (newResult) {
 			ComputeStreaks(newResult);
 		}
-		ProcessTick(prices[tickIt], times[tickIt]);
+		ProcessTick(prices[tickIt]);
 	}
-	LogResults();
+	// LogResults();
+}
+
+function ResetState() {
+	result = 0;
+	tickIt = 0;
+	contracts = [];
+	winStreak = 0;
+	winStreaks = [];
+	lossStreak = 0;
+	lossStreaks = [];
+	betsWon = 0;
+	betsCount = 0;
 }
 
 function BuyContract(action, delay) {
-	contracts[(times[tickIt] + delay).toString()] = {
+	contracts[delay - 1] = {
 		action: action,
 		price: prices[tickIt]
 	};
@@ -97,21 +143,17 @@ function BuyContract(action, delay) {
 }
 
 function GetTradeResult() {
-	const timeStr = times[tickIt].toString();
-	const contract = contracts[timeStr];
+	const contract = contracts.shift();
 	if (!contract) {
 		return;
 	}
-	delete contracts[timeStr];
-	console.log(contract, timeStr);
-	let curPrice = prices[tickIt];
-	if (contract.price > curPrice) {
+	if (contract.price > prices[tickIt]) {
 		if (contract.action > 0) {
 			return 1;
 		} else if (contract.action < 0) {
 			return -1;
 		}
-	} else if (contract.price < curPrice) {
+	} else if (contract.price < prices[tickIt]) {
 		if (contract.action < 0) {
 			return 1;
 		} else if (contract.action > 0) {

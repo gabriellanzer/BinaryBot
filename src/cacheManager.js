@@ -53,7 +53,7 @@ async function ReadCacheFile() {
         const tickCount = parseInt(fileBuff.slice(lstPos, lnPos));
         console.log(
             "Using Cache from '" + iniDate.toUTCString() + "' to '" +
-            lastDate.toUTCString() + "' with " + tickCount + " Ticks!"
+            lastDate.toUTCString() + "' with " + tickCount + " Ticks!\n"
         );
         // Read Binary Prices
         lstPos = lnPos + 1;
@@ -112,10 +112,12 @@ async function GenerateNewCacheFile() {
             console.log(`Downloading cache progress: ${downloadProg.toFixed(2)}%`);
 
             // Append to tick list
-            const history = msg.history;
-            for (let i = 0; i < history.prices.length; i++) {
-                price_list.push(history.prices[i]);
-                time_list.push(history.times[i]);
+            const { prices, times } = msg.history;
+            prices.reverse();
+            times.reverse();
+            for (let i = 0; i < prices.length; i++) {
+                price_list.push(prices[i]);
+                time_list.push(times[i]);
             }
 
             // New Request?
@@ -129,7 +131,8 @@ async function GenerateNewCacheFile() {
                 });
             } else // Download completed!
             {
-                console.log(`Cache download completed... ${time_list.length} ticks gathered!\n`);
+                console.log(`Cache download completed... ${time_list.length} ticks gathered!`);
+                console.log(`Writing cache file...`);
                 let wrStream;
                 try {
                     wrStream = FS.createWriteStream(cache_dir);
@@ -157,10 +160,13 @@ async function GenerateNewCacheFile() {
                 }
                 wrStream.write(timesBuffer, "binary");
                 wrStream.close();
-                res([
-                    price_list,
-                    time_list
-                ]);
+                wrStream.on("close", () => {
+                    console.log(`Done!`);
+                    res([
+                        price_list,
+                        time_list
+                    ]);
+                })
             }
         });
 
