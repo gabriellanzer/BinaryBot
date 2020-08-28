@@ -30,12 +30,12 @@ linearRegression = (data, length) => {
   return Math.atan(tan) * (180.0 / Math.PI);
 };
 
-roundWithPrecision = function(num, precision) {
+roundWithPrecision = function (num, precision) {
   var multiplier = Math.pow(10, precision);
   return Math.round(num * multiplier) / multiplier;
 };
 
-ema = function(data, offset = 0, length = 0) {
+ema = function (data, offset = 0, length = 0) {
   if (length == 0) length = data.length;
   var res = 0;
   var mult = 2.0 / (length + 1);
@@ -45,15 +45,15 @@ ema = function(data, offset = 0, length = 0) {
   return +res;
 };
 
-macd = function(data, slowPeriod = 26, fastPeriod = 12, signalPeriod = 9) {
+macd = function (data, slowPeriod = 26, fastPeriod = 12, signalPeriod = 9) {
   var totalPeriod = slowPeriod + signalPeriod;
   if (data.length < totalPeriod) {
     console.error(
       "MACD Total Period (" +
-        totalPeriod +
-        ") is longer than data length (" +
-        data.length +
-        ")!"
+      totalPeriod +
+      ") is longer than data length (" +
+      data.length +
+      ")!"
     );
   }
   var periodDif = Math.max(slowPeriod - fastPeriod, 0);
@@ -66,9 +66,19 @@ macd = function(data, slowPeriod = 26, fastPeriod = 12, signalPeriod = 9) {
   var res = [];
   for (var i = 0; i < macd.length - signalPeriod; i++) {
     var signal = ema(macd, i, signalPeriod);
-    var histogram = +(macd[i+signalPeriod-1] - signal); 
-    res.push([histogram, macd[i+signalPeriod-1], signal]);
+    var histogram = +(macd[i + signalPeriod - 1] - signal);
+    res.push([histogram, macd[i + signalPeriod - 1], signal]);
   }
-  
+
   return res;
+};
+
+module.exports = {
+  Sum: sum,
+  Mean: mean,
+  StdDev: stddev,
+  LinearReg: linearRegression,
+  RoundWithPrec: roundWithPrecision,
+  EMA: ema,
+  MACD: macd
 };

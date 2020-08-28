@@ -1,5 +1,5 @@
 require("./consoleLogs.js")
-require("../libs/math")
+const { RoundWithPrec } = require("./math")
 
 WebSocket = require("ws")
 
