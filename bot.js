@@ -2,7 +2,7 @@
 //======================vvvvvvvvvv======================
 
 const authToken = "YOUR_TOKEN_HERE"
-const mktSymbol = "1HZ100V"
+const mktSymbol = "frxUSDJPY"
 
 //======================^^^^^^^^^^======================
 //======================BOT=CONFIG======================
@@ -31,14 +31,15 @@ let times = [];
 let simulation = false;
 // Meta Simulation State
 let stdStep = 0.05;
-let stdMin = 0.5;
-let stdMax = 3.0;
+let stdMin;
+let stdMax;
 let stdFence = stdMin;
 let signStep = 0.1;
-let signMin = 0.5;
-let signMax = 4.0;
+let signMin;
+let signMax;
 let signFence = signMin;
 let bestRatio = 0;
+let initialization = true;
 // Simulation State
 let result = 0;
 let tickIt = 0;
@@ -67,6 +68,30 @@ function ProcessTick(price) {
 	] = MACD(tickList);
 
 	const newSlice = tickList.slice(30, 36);
+	if (initialization) {
+		const std = StdDev(newSlice);
+		const mSign = Math.abs(sign);
+		if (!stdMin || !stdMax) {
+			stdMin = stdMax = std;
+		}
+		if (!signMin || !signMax) {
+			signMin = signMax = mSign;
+		}
+		if (std < stdMin) {
+			stdMin = std;
+		}
+		if (std > stdMax) {
+			stdMax = std;
+		}
+		if (mSign < signMin) {
+			signMin = mSign;
+		}
+		if (mSign > signMax) {
+			signMax = mSign;
+		}
+		return;
+	}
+
 	if (StdDev(newSlice) < stdFence) {
 		return;
 	}
@@ -87,8 +112,18 @@ async function RunBot() {
 		console.log("STARTING BOT SIMULATION");
 		console.log("=======================");
 
+		console.log("\nInitializing parameters...");
+		SimulateBot();
+		initialization = false;
+		console.log(`Found Std Range [${stdMin.toFixed(4)},${stdMax.toFixed(4)}]`);
+		console.log(`Found Sign Range [${signMin.toFixed(4)},${signMax.toFixed(4)}]`);
+
+		console.log("\nPerforming Meta Simulation...");
+
 		stdFence = stdMin;
+		stdStep = (stdMax - stdMin) / 10.0;
 		signFence = signMin;
+		signStep = (signMax - signMin) / 10.0;
 		while (stdFence < stdMax) {
 			while (signFence < signMax) {
 				SimulateBot();
