@@ -31,9 +31,9 @@ let times = [];
 let simulation = false;
 // Meta Simulation State
 let stdStep = 0.05;
-let stdMin;
-let stdMax;
-let stdFence = stdMin;
+let emaMin;
+let emaMax;
+let emaFence = emaMin;
 let signStep = 0.1;
 let signMin;
 let signMax;
@@ -57,50 +57,56 @@ console.log("This is a very advanced Binary Bot! You are lucky to have it!!");
 console.log("==============================================================");
 
 let tickList = [];
+let signList = [];
 
 function ProcessTick(price) {
 	tickList.push(price);
 	if (tickList.length <= 36)
-		return 0;
+		return;
 	tickList.shift();
 	const [
 		[hist, val, sign]
 	] = MACD(tickList);
 
-	const newSlice = tickList.slice(30, 36);
+	signList.push(sign);
+	if (signList.length <= 9)
+		return;
+	signList.shift();
+
+	const tickSlice = tickList.slice(18, 36);
 	if (initialization) {
-		const std = StdDev(newSlice);
-		const mSign = Math.abs(sign);
-		if (!stdMin || !stdMax) {
-			stdMin = stdMax = std;
+		const tickEma = EMA(tickSlice);
+		const signStdDev = StdDev(signList);
+		if (!emaMin || !emaMax) {
+			emaMin = emaMax = tickEma;
 		}
 		if (!signMin || !signMax) {
-			signMin = signMax = mSign;
+			signMin = signMax = signStdDev;
 		}
-		if (std < stdMin) {
-			stdMin = std;
+		if (tickEma < emaMin) {
+			emaMin = tickEma;
 		}
-		if (std > stdMax) {
-			stdMax = std;
+		if (tickEma > emaMax) {
+			emaMax = tickEma;
 		}
-		if (mSign < signMin) {
-			signMin = mSign;
+		if (signStdDev < signMin) {
+			signMin = signStdDev;
 		}
-		if (mSign > signMax) {
-			signMax = mSign;
+		if (signStdDev > signMax) {
+			signMax = signStdDev;
 		}
 		return;
 	}
 
-	if (StdDev(newSlice) < stdFence) {
+	if (EMA(tickSlice) < emaFence) {
 		return;
 	}
 
-	if (Math.abs(sign) < signFence) {
+	if (StdDev(signList) < signFence) {
 		return;
 	}
 
-	BuyContract(sign, 3);
+	BuyContract(EMA(signList), 24);
 }
 
 async function RunBot() {
@@ -115,30 +121,30 @@ async function RunBot() {
 		console.log("\nInitializing parameters...");
 		SimulateBot();
 		initialization = false;
-		console.log(`Found Std Range [${stdMin.toFixed(4)},${stdMax.toFixed(4)}]`);
+		console.log(`Found Std Range [${emaMin.toFixed(4)},${emaMax.toFixed(4)}]`);
 		console.log(`Found Sign Range [${signMin.toFixed(4)},${signMax.toFixed(4)}]`);
 
 		console.log("\nPerforming Meta Simulation...");
 
-		stdFence = stdMin;
-		stdStep = (stdMax - stdMin) / 10.0;
+		emaFence = emaMin;
+		stdStep = (emaMax - emaMin) / 10.0;
 		signFence = signMin;
 		signStep = (signMax - signMin) / 10.0;
-		while (stdFence < stdMax) {
+		while (emaFence < emaMax) {
 			while (signFence < signMax) {
 				SimulateBot();
 				const ration = betsWon / betsCount;
 				if (ration > bestRatio) {
 					bestRatio = ration;
-					console.logInfo(`StdFence=${stdFence}; SignFence=${signFence};`);
+					console.logInfo(`StdFence=${emaFence}; SignFence=${signFence};`);
 					LogResults();
 				}
 				signFence += signStep;
 			}
-			let prog = (stdFence - stdMin + stdStep) / (stdMax - stdMin + stdStep);
+			let prog = (emaFence - emaMin + stdStep) / (emaMax - emaMin + stdStep);
 			console.log("Meta Simulation Progress: " + (prog * 100).toFixed(2) + "%");
 			signFence = signMin;
-			stdFence += stdStep;
+			emaFence += stdStep;
 		}
 		console.logWin("Meta Simulation finished!\n");
 	}
@@ -154,6 +160,7 @@ function SimulateBot() {
 		}
 		ProcessTick(prices[tickIt]);
 	}
+	ComputeFinalStreaks();
 	// LogResults();
 }
 
@@ -204,7 +211,7 @@ function ComputeStreaks(newResult) {
 			if (!winStreaks[winStreak])
 				winStreaks[winStreak] = 0
 			winStreaks[winStreak]++;
-		} else if (result < 0) {
+		} else if (result <= 0) {
 			if (!lossStreaks[lossStreak])
 				lossStreaks[lossStreak] = 0
 			lossStreaks[lossStreak]++;
@@ -215,10 +222,19 @@ function ComputeStreaks(newResult) {
 	if (newResult > 0) {
 		betsWon++;
 		winStreak++;
-	} else if (newResult < 0) {
+	} else if (newResult <= 0) {
 		lossStreak++;
 	}
 	result = newResult;
+}
+
+function ComputeFinalStreaks() {
+	if (!winStreaks[winStreak])
+		winStreaks[winStreak] = 0
+	winStreaks[winStreak]++;
+	if (!lossStreaks[lossStreak])
+		lossStreaks[lossStreak] = 0
+	lossStreaks[lossStreak]++;
 }
 
 function LogResults() {
@@ -229,11 +245,17 @@ function LogResults() {
 		if (!winStreaks[i]) continue;
 		winStreakInfo += `(${i}:${winStreaks[i]});`;
 	}
+	if (winStreaks.length == 0) {
+		winStreakInfo = "None!";
+	}
 	console.logInfo(`Win Streaks: ${winStreakInfo}`)
 	let lossStreakInfo = "";
 	for (let i = 1; i < lossStreaks.length; i++) {
 		if (!lossStreaks[i]) continue;
 		lossStreakInfo += `(${i}:${lossStreaks[i]});`;
+	}
+	if (lossStreak.length == 0) {
+		lossStreakInfo = "None!";
 	}
 	console.logInfo(`Loss Streaks: ${lossStreakInfo}`)
 }
